@@ -6,7 +6,7 @@ from scipy.signal import find_peaks
 from collections import deque
 
 # ==== CONFIG ====
-PORT = "/dev/ttyUSB0"     # Change to your port
+PORT = "COM3"     # Change to your port
 BAUD = 9600
 WINDOW = 500      # Number of samples for display
 FS = 50           # Sampling rate (Hz)
@@ -32,6 +32,7 @@ ax.set_ylabel("Signal")
 bpm_text = ax.text(0.02, 0.95, '', transform=ax.transAxes)
 spo2_text = ax.text(0.02, 0.90, '', transform=ax.transAxes)
 
+
 def calculate_hr(ir_signal):
     peaks, _ = find_peaks(ir_signal, distance=FS*0.5)  # min 0.5s apart
     if len(peaks) > 1:
@@ -40,6 +41,7 @@ def calculate_hr(ir_signal):
         bpm = 60.0 / avg_period
         return bpm
     return None
+
 
 def calculate_spo2(ir_signal, red_signal):
     # AC: remove DC offset (mean)
@@ -53,10 +55,11 @@ def calculate_spo2(ir_signal, red_signal):
     spo2 = 110 - 25 * R   # empirical formula
     return np.clip(spo2, 0, 100)
 
+
 try:
     last_update = time.time()
     while True:
-        line = ser.readline().decode('utf-8').strip()
+        line = ser.readline().decode('utf-8', errors='ignore').strip()
         try:
             ir, red = map(int, line.split(','))
             ir_values.append(ir)
