@@ -1,24 +1,30 @@
 #include <Arduino.h>
+#include <Wire.h>
+#include "MAX30105.h"
 
-const int ECG_PIN = 34;    // ADC1 pin recommended for ESP32
-const unsigned long BAUD = 9600;
-const unsigned long SAMPLE_MS = 4; // 250Hz sample => 4ms per sample (tune as needed)
+MAX30105 particleSensor;
 
 void setup() {
-  Serial.begin(BAUD);
-  // Allow ESP32 to boot fully
-  delay(2000);
-  // ADC config (optional): attenuation to read wider range
-  analogSetPinAttenuation(ECG_PIN, ADC_11db); // read up to ~3.3V
+  Wire.begin(23, 22);
+  Serial.begin(9600);
+  if (!particleSensor.begin(Wire, I2C_SPEED_STANDARD)) {
+    Serial.println("MAX30102 not found. Check wiring/power.");
+    while (1);
+  }
+  particleSensor.setup();
+  particleSensor.setPulseAmplitudeRed(0x1F);   // stronger LED for SPO2
+  particleSensor.setPulseAmplitudeIR(0x1F);
+  particleSensor.setPulseAmplitudeGreen(0);
 }
 
 void loop() {
-  // read raw ADC (0-4095 on 12-bit default)
-  int raw = analogRead(ECG_PIN);
-  // print timestamp (ms) and value, comma separated
-  Serial.print(millis());
-  Serial.print(',');
-  Serial.println(raw);
+  long irValue = particleSensor.getIR();
+  long redValue = particleSensor.getRed();
 
-  delay(SAMPLE_MS);
+  // send comma-separated values over serial
+  Serial.print(irValue);
+  Serial.print(",");
+  Serial.println(redValue);
+
+  delay(20); // 50 Hz
 }
