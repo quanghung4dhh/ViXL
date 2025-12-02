@@ -1,52 +1,43 @@
 #include <Arduino.h>
-#include <Wire.h>
-#include "MAX30105.h" // This library works for MAX30102 as well
 
-MAX30105 particleSensor;
+// --- KHAI BÁO CHÂN (PIN DEFINITIONS) ---
+// AD8232 OUTPUT nối với GPIO 34 (ADC1)
+// Lưu ý: GPIO 34, 35, 36, 39 trên ESP32 là chân "Input Only", đọc Analog rất tốt.
+#define SENSOR_PIN  34 
 
-// Define your custom I2C pins
-#define I2C_SDA 23
-#define I2C_SCL 22
+// Chân phát hiện tuột miếng dán (Leads Off)
+#define LO_PLUS     33
+#define LO_MINUS    32
 
-void setup()
-{
+void setup() {
+  // Khởi động Serial
   Serial.begin(115200);
   
-  // Initialize I2C with your specific pins
-  Wire.begin(I2C_SDA, I2C_SCL);
+  // Cấu hình chân Input
+  pinMode(SENSOR_PIN, INPUT);
+  pinMode(LO_PLUS, INPUT);
+  pinMode(LO_MINUS, INPUT);
 
-  // Initialize sensor
-  if (!particleSensor.begin(Wire, I2C_SPEED_FAST)) // Use default I2C port, 400kHz speed
-  {
-    Serial.println("MAX30102 was not found. Please check wiring/power. ");
-    while (1);
-  }
-
-  // Setup the sensor for high sensitivity
-  byte ledBrightness = 60; // Options: 0=Off to 255=50mA
-  byte sampleAverage = 4; // Options: 1, 2, 4, 8, 16, 32
-  byte ledMode = 2; // Options: 1 = Red only, 2 = Red + IR, 3 = Red + IR + Green
-  int sampleRate = 100; // Options: 50, 100, 200, 400, 800, 1000, 1600, 3200
-  int pulseWidth = 411; // Options: 69, 118, 215, 411
-  int adcRange = 4096; // Options: 2048, 4096, 8192, 16384
-
-  particleSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
+  // In thông báo khởi động (Chỉ in 1 lần)
+  Serial.println("System Ready: AD8232 reading...");
 }
 
-void loop()
-{
-  // Read the IR and Red values
-  // We generally use IR for heart rate as it detects blood flow changes better
-  long irValue = particleSensor.getIR();
-  long redValue = particleSensor.getRed();
-
-  // Print to serial in a format Python can easily parse: "Red,IR"
-  // We check for 0 to avoid plotting noise if finger is removed
-  if (irValue > 50000) { 
-      Serial.print(redValue);
-      Serial.print(",");
-      Serial.println(irValue);
-  } else {
-      Serial.println("0,0"); // Finger removed
+void loop() {
+  // 1. Kiểm tra xem miếng dán có bị tuột không
+  // LO+ hoặc LO- lên mức cao tức là điện cực bị hở
+  if ((digitalRead(LO_PLUS) == HIGH) || (digitalRead(LO_MINUS) == HIGH)) {
+    // Gửi giá trị 0 hoặc ký tự cảnh báo để Python xử lý
+    Serial.println(0); 
+  } 
+  else {
+    // 2. Đọc giá trị Analog (0 - 4095)
+    int sensorValue = analogRead(SENSOR_PIN);
+    
+    // Gửi giá trị thô lên Serial
+    Serial.println(sensorValue);
   }
+
+  // 3. Delay để giữ tốc độ lấy mẫu ổn định
+  // 10ms ~ 100 mẫu/giây (đủ cho ECG cơ bản)
+  delay(10);
 }
